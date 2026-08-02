@@ -315,10 +315,22 @@ impl Reducer {
                 })
             }
         };
-        self.focused_workspace_id = id;
-        if let Some(fid) = &self.focused_workspace_id {
-            for ws in self.workspaces.values_mut() {
-                ws.is_focused = ws.id == *fid;
+        self.focused_workspace_id = id.clone();
+        let focused_monitor_id = id.as_ref().and_then(|workspace_id| {
+            self.workspaces
+                .get(workspace_id)
+                .and_then(|workspace| workspace.monitor_id.clone())
+        });
+        for ws in self.workspaces.values_mut() {
+            let is_focused = id.as_ref() == Some(&ws.id);
+            ws.is_focused = is_focused;
+            // A focus event is the authoritative signal when switching to an
+            // existing workspace. Keep the displayed marker in sync on that
+            // monitor even when the event omits the full workspace payload.
+            if let Some(monitor_id) = focused_monitor_id.as_deref()
+                && ws.monitor_id.as_deref() == Some(monitor_id)
+            {
+                ws.is_displayed = is_focused;
             }
         }
     }
@@ -840,6 +852,45 @@ mod tests {
             s.last_ui_change.as_ref().map(|change| &change.kind),
             Some(UiChangeKind::Workspace { workspace_id }) if workspace_id == "ws2"
         ));
+    }
+
+    #[test]
+    fn focus_change_event_updates_displayed_workspace() {
+        let mut r = r();
+        let s = r.apply(ReducerInput::Event {
+            name: "focus_changed".into(),
+            data: Some(serde_json::json!({
+                "focusedContainer": {"type":"workspace","id":"ws2"}
+            })),
+        });
+
+        let ws1 = s.monitors[0]
+            .workspaces
+            .iter()
+            .find(|w| w.id == "ws1")
+            .unwrap();
+        let ws2 = s.monitors[0]
+            .workspaces
+            .iter()
+            .find(|w| w.id == "ws2")
+            .unwrap();
+        assert!(!ws1.is_displayed);
+        assert!(ws2.is_displayed);
+        assert_eq!(s.monitors[0].displayed_workspace_id.as_deref(), Some("ws2"));
+    }
+
+    #[test]
+    fn focused_window_promotes_parent_workspace_to_displayed() {
+        let mut r = r();
+        let s = r.apply(ReducerInput::Event {
+            name: "focus_changed".into(),
+            data: Some(serde_json::json!({
+                "focusedContainer": {"type":"window","id":"w2","parentId":"ws2"}
+            })),
+        });
+
+        assert_eq!(s.focused_workspace_id.as_deref(), Some("ws2"));
+        assert_eq!(s.monitors[0].displayed_workspace_id.as_deref(), Some("ws2"));
     }
 
     #[test]
