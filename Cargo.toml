@@ -1,6 +1,6 @@
 [package]
 name = "glazetray"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "GlazeWM 的轻量系统托盘状态与控制工具"
 license = "MIT"
