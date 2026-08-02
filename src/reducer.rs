@@ -404,6 +404,33 @@ impl Reducer {
                     }
                 }
             }
+            "focused_container_moved" => {
+                // `move-workspace` emits this event before `workspace_updated`.
+                // The focused container is the moved workspace, including its
+                // new parent monitor. Keep the state and transient location
+                // current as soon as that payload is available.
+                if let Some(ws) = extract_container(&data, &["focusedContainer", "container"])
+                    && ws.typ.as_deref() == Some("workspace")
+                {
+                    let workspace_id = ws_id(&ws);
+                    let old_monitor_id = self
+                        .workspaces
+                        .get(&workspace_id)
+                        .and_then(|workspace| workspace.monitor_id.clone());
+                    self.upsert_workspace(&ws, None);
+                    let new_monitor_id = self
+                        .workspaces
+                        .get(&workspace_id)
+                        .and_then(|workspace| workspace.monitor_id.clone());
+                    self.revision += 1;
+                    if old_monitor_id
+                        .zip(new_monitor_id)
+                        .is_some_and(|(old, new)| old != new)
+                    {
+                        self.mark_ui_change(UiChangeKind::Workspace { workspace_id });
+                    }
+                }
+            }
             "workspace_activated" => {
                 if let Some(ws) =
                     extract_container(&data, &["activatedWorkspace", "workspace", "container"])
@@ -435,8 +462,27 @@ impl Reducer {
                 if let Some(ws) =
                     extract_container(&data, &["updatedWorkspace", "workspace", "container"])
                 {
+                    let workspace_id = ws_id(&ws);
+                    let old_monitor_id = self
+                        .workspaces
+                        .get(&workspace_id)
+                        .and_then(|workspace| workspace.monitor_id.clone());
                     self.upsert_workspace(&ws, None);
+                    let new_monitor_id = self
+                        .workspaces
+                        .get(&workspace_id)
+                        .and_then(|workspace| workspace.monitor_id.clone());
                     self.revision += 1;
+                    // A workspace moved between monitors is a visible
+                    // workspace change even when focus stays on the same
+                    // workspace. `workspace_updated` is also the fallback
+                    // for WM versions that omit the moved-container payload.
+                    if old_monitor_id
+                        .zip(new_monitor_id)
+                        .is_some_and(|(old, new)| old != new)
+                    {
+                        self.mark_ui_change(UiChangeKind::Workspace { workspace_id });
+                    }
                 }
             }
             "monitor_added" | "monitor_updated" => {
@@ -945,6 +991,91 @@ mod tests {
         assert_eq!(s.focused_monitor_id.as_deref(), Some("m1"));
         assert!(s.monitors[1].is_focused);
         assert!(!s.monitors[0].is_focused);
+    }
+
+    #[test]
+    fn workspace_move_between_monitors_surfaces_ui_change() {
+        let moved_workspace = || ReducerInput::Event {
+            name: "focused_container_moved".into(),
+            data: Some(serde_json::json!({
+                "focusedContainer": {
+                    "type": "workspace",
+                    "id": "ws1",
+                    "name": "1",
+                    "parentId": "m1",
+                    "isDisplayed": true,
+                    "hasFocus": true,
+                    "tilingDirection": "horizontal",
+                    "x": 12,
+                    "y": 42,
+                    "width": 3816,
+                    "height": 2034,
+                    "children": [{"type": "window", "id": "w1", "parentId": "ws1"}]
+                }
+            })),
+        };
+        let updated_workspace = || ReducerInput::Event {
+            name: "workspace_updated".into(),
+            data: Some(serde_json::json!({
+                "updatedWorkspace": {
+                    "type": "workspace",
+                    "id": "ws1",
+                    "name": "1",
+                    "parentId": "m1",
+                    "isDisplayed": true,
+                    "hasFocus": true,
+                    "tilingDirection": "horizontal",
+                    "x": 12,
+                    "y": 42,
+                    "width": 3816,
+                    "height": 2034,
+                    "children": [{"type": "window", "id": "w1", "parentId": "ws1"}]
+                }
+            })),
+        };
+
+        let mut r = r();
+        let first = r.apply(moved_workspace());
+        assert!(matches!(
+            first.last_ui_change.as_ref().map(|change| &change.kind),
+            Some(UiChangeKind::Workspace { workspace_id }) if workspace_id == "ws1"
+        ));
+        assert_eq!(first.focused_monitor_id.as_deref(), Some("m1"));
+        assert!(!first.monitors[0].workspaces.iter().any(|ws| ws.id == "ws1"));
+        assert!(first.monitors[1].workspaces.iter().any(|ws| ws.id == "ws1"));
+
+        // GlazeWM emits workspace_updated after focused_container_moved for
+        // the same move. It updates state but must not flash a second time.
+        let first_serial = first.last_ui_change.as_ref().unwrap().serial;
+        let second = r.apply(updated_workspace());
+        assert_eq!(second.last_ui_change.as_ref().unwrap().serial, first_serial);
+    }
+
+    #[test]
+    fn workspace_updated_detects_monitor_migration_without_move_event() {
+        let mut r = r();
+        let s = r.apply(ReducerInput::Event {
+            name: "workspace_updated".into(),
+            data: Some(serde_json::json!({
+                "updatedWorkspace": {
+                    "type": "workspace",
+                    "id": "ws1",
+                    "name": "1",
+                    "parentId": "m1",
+                    "isDisplayed": true,
+                    "hasFocus": true,
+                    "x": 12,
+                    "y": 42,
+                    "width": 3816,
+                    "height": 2034
+                }
+            })),
+        });
+        assert!(matches!(
+            s.last_ui_change.as_ref().map(|change| &change.kind),
+            Some(UiChangeKind::Workspace { workspace_id }) if workspace_id == "ws1"
+        ));
+        assert_eq!(s.focused_monitor_id.as_deref(), Some("m1"));
     }
 
     #[test]
