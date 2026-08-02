@@ -1,0 +1,51 @@
+[package]
+name = "glazetray"
+version = "0.1.0"
+edition = "2024"
+description = "GlazeWM 的轻量系统托盘状态与控制工具"
+license = "MIT"
+build = "build.rs"
+
+[dependencies]
+windows = { version = "0.62", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Dwm",
+  "Win32_Graphics_Direct2D",
+  "Win32_Graphics_Direct2D_Common",
+  "Win32_Graphics_DirectWrite",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Gdi",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Registry",
+  "Win32_Security",
+  "Win32_System_Threading",
+  "Win32_UI_Accessibility",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+windows-numerics = "0.3"
+tiny-skia = "0.12"
+tokio = { version = "1", features = ["rt-multi-thread", "time", "macros", "sync"] }
+tokio-tungstenite = "0.30"
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml_ng = "0.10"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+[build-dependencies]
+embed-manifest = "1.5"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"
+
+[profile.dev]
+opt-level = 1
