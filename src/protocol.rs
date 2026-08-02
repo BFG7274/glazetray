@@ -206,7 +206,10 @@ mod tests {
         assert_eq!(c.is_displayed, Some(true));
         assert_eq!(c.has_focus, Some(true));
         assert_eq!(c.children.as_ref().unwrap().len(), 1);
-        assert_eq!(c.monitor.as_ref().unwrap().h_monitor.as_deref(), Some("0x000000000001002E"));
+        assert_eq!(
+            c.monitor.as_ref().unwrap().h_monitor.as_deref(),
+            Some("0x000000000001002E")
+        );
     }
 
     #[test]
@@ -220,8 +223,14 @@ mod tests {
 
     #[test]
     fn direction_parsing_accepts_string_and_object() {
-        assert_eq!(direction_from_value(&serde_json::json!("horizontal")), Some(TilingDirection::Horizontal));
-        assert_eq!(direction_from_value(&serde_json::json!("VERTICAL")), Some(TilingDirection::Vertical));
+        assert_eq!(
+            direction_from_value(&serde_json::json!("horizontal")),
+            Some(TilingDirection::Horizontal)
+        );
+        assert_eq!(
+            direction_from_value(&serde_json::json!("VERTICAL")),
+            Some(TilingDirection::Vertical)
+        );
         assert_eq!(
             direction_from_value(&serde_json::json!({"tilingDirection": "vertical"})),
             Some(TilingDirection::Vertical)

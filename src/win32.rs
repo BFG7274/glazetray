@@ -3,27 +3,27 @@
 //! All `unsafe` usage is confined to this module (plus the two WndProc entry
 //! points in `app.rs` / `flyout.rs`).
 
-use windows::core::{GUID, PCWSTR};
 use windows::Win32::Foundation::{
-    CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE, HWND, LPARAM, POINT, RECT,
+    CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE, HWND, LPARAM, POINT, RECT,
 };
 use windows::Win32::Graphics::Gdi::{
-    EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoW, MonitorFromPoint,
-    DISPLAY_DEVICEW, DISPLAY_DEVICE_ACTIVE, DISPLAY_DEVICE_STATE_FLAGS, HMONITOR,
-    MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    DISPLAY_DEVICE_ACTIVE, DISPLAY_DEVICE_STATE_FLAGS, DISPLAY_DEVICEW, EnumDisplayDevicesW,
+    EnumDisplayMonitors, GetMonitorInfoW, HMONITOR, MONITOR_DEFAULTTONEAREST, MONITORINFO,
+    MonitorFromPoint,
 };
-use windows::Win32::UI::WindowsAndMessaging::MONITORINFOF_PRIMARY;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-use windows::Win32::System::Registry::{
-    RegGetValueW, HKEY_CURRENT_USER, REG_DWORD, REG_SZ,
-};
+use windows::Win32::System::Registry::{HKEY_CURRENT_USER, REG_DWORD, REG_SZ, RegGetValueW};
 use windows::Win32::System::Threading::CreateMutexW;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
-use windows::Win32::UI::Shell::{SHAppBarMessage, Shell_NotifyIconGetRect, ABM_GETTASKBARPOS, APPBARDATA};
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetCursorPos, SystemParametersInfoW, SYSTEM_PARAMETERS_INFO_ACTION,
-    SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
+use windows::Win32::UI::Shell::{
+    ABM_GETTASKBARPOS, APPBARDATA, SHAppBarMessage, Shell_NotifyIconGetRect,
 };
+use windows::Win32::UI::WindowsAndMessaging::MONITORINFOF_PRIMARY;
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetCursorPos, SYSTEM_PARAMETERS_INFO_ACTION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
+    SystemParametersInfoW,
+};
+use windows::core::{GUID, PCWSTR};
 
 /// Convert a Rust string into a null-terminated UTF-16 buffer.
 pub fn wide(s: &str) -> Vec<u16> {
@@ -131,9 +131,10 @@ pub fn friendly_name_for_glazewm_monitor(
 ) -> Option<String> {
     // Prefer the device name reported by GlazeWM itself.
     if let Some(dn) = device_name
-        && let Some(name) = friendly_name_for_device(dn) {
-            return Some(name);
-        }
+        && let Some(name) = friendly_name_for_device(dn)
+    {
+        return Some(name);
+    }
     let monitors = enum_monitors();
     if monitors.is_empty() {
         return None;
@@ -185,7 +186,11 @@ pub fn apps_use_light_theme() -> bool {
 /// Accent color as (r, g, b) from the DWM ColorizationColor value.
 pub fn system_accent_color() -> Option<(u8, u8, u8)> {
     let v = reg_dword(r"Software\Microsoft\Windows\DWM", "ColorizationColor")?;
-    Some((((v >> 16) & 0xFF) as u8, ((v >> 8) & 0xFF) as u8, (v & 0xFF) as u8))
+    Some((
+        ((v >> 16) & 0xFF) as u8,
+        ((v >> 8) & 0xFF) as u8,
+        (v & 0xFF) as u8,
+    ))
 }
 
 /// Whether a high-contrast theme is active.
@@ -262,8 +267,7 @@ pub fn reg_string(subkey: &str, name: &str) -> Option<String> {
     if err.is_ok() {
         buf.truncate(len as usize);
         let s = String::from_utf16_lossy(
-            &buf
-                .as_chunks::<2>()
+            &buf.as_chunks::<2>()
                 .0
                 .iter()
                 .map(|c| u16::from_le_bytes([c[0], c[1]]))

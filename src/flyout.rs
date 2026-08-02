@@ -226,12 +226,8 @@ pub fn compute_layout(
                 .map(|ws| workspace_button_width(font, &ws.name))
                 .sum::<f32>()
                 + CTRL_GAP * workspaces.len().saturating_sub(1) as f32;
-            let required = 2.0 * MARGIN
-                + MONITOR_W
-                + SECTION_GAP
-                + rail_width
-                + SECTION_GAP
-                + DIRECTION_W;
+            let required =
+                2.0 * MARGIN + MONITOR_W + SECTION_GAP + rail_width + SECTION_GAP + DIRECTION_W;
             desired_width = desired_width.max(required);
         }
     }
@@ -315,8 +311,7 @@ pub fn compute_layout(
                 btn_x += bw + CTRL_GAP;
             }
             let line_count = line + 1;
-            let rail_h = line_count as f32 * BTN_H
-                + line_count.saturating_sub(1) as f32 * CTRL_GAP;
+            let rail_h = line_count as f32 * BTN_H + line_count.saturating_sub(1) as f32 * CTRL_GAP;
             let row_h = (rail_h + 2.0 * ROW_PAD_Y).max(50.0);
             let label_y = row_y + (row_h - 30.0) / 2.0;
             rows.push(RowLayout {
@@ -822,7 +817,8 @@ impl Flyout {
         let hdr = &layout.header;
         draw_text(
             &mut px,
-            font, crate::fonts::REGULAR,
+            font,
+            crate::fonts::REGULAR,
             11.0 * scale,
             &hdr.count_text,
             content_x + hdr.count_rect.x * scale,
@@ -843,7 +839,11 @@ impl Flyout {
                 hdr.status_rect.w * scale,
                 hdr.status_rect.h * scale,
                 5.0 * scale,
-                lerp_color(pal.surface, status_color, if hdr.attention { 0.30 } else { 0.14 }),
+                lerp_color(
+                    pal.surface,
+                    status_color,
+                    if hdr.attention { 0.30 } else { 0.14 },
+                ),
                 clip,
             );
         }
@@ -857,7 +857,8 @@ impl Flyout {
         );
         draw_text(
             &mut px,
-            med, crate::fonts::MEDIUM,
+            med,
+            crate::fonts::MEDIUM,
             10.5 * scale,
             if hdr.is_paused {
                 "已暂停"
@@ -903,23 +904,33 @@ impl Flyout {
                 content_x + (MARGIN + 7.0) * scale,
                 ty + (row.meta_rect.y + 15.0) * scale,
                 14.0 * scale,
-                if row.is_focused { pal.accent } else { pal.text_disabled },
+                if row.is_focused {
+                    pal.accent
+                } else {
+                    pal.text_disabled
+                },
                 clip,
             );
             draw_text(
                 &mut px,
-                font, crate::fonts::REGULAR,
+                font,
+                crate::fonts::REGULAR,
                 9.5 * scale,
                 &format!("显示器 {}", row.monitor_number),
                 content_x + row.meta_rect.x * scale,
                 ty + row.meta_rect.y * scale,
-                if row.is_focused { pal.accent } else { pal.text_disabled },
+                if row.is_focused {
+                    pal.accent
+                } else {
+                    pal.text_disabled
+                },
                 clip,
             );
             let title = elide_text(med, &row.title, 12.0, row.title_rect.w);
             draw_text(
                 &mut px,
-                med, crate::fonts::MEDIUM,
+                med,
+                crate::fonts::MEDIUM,
                 12.0 * scale,
                 &title,
                 content_x + row.title_rect.x * scale,
@@ -961,7 +972,8 @@ impl Flyout {
                 );
                 draw_text(
                     &mut px,
-                    med, crate::fonts::MEDIUM,
+                    med,
+                    crate::fonts::MEDIUM,
                     10.5 * scale,
                     row.direction.map(|v| v.label()).unwrap_or("--"),
                     content_x + (d.x + 27.0) * scale,
@@ -993,7 +1005,8 @@ impl Flyout {
         if let Some(st) = &layout.status {
             draw_text(
                 &mut px,
-                font, crate::fonts::REGULAR,
+                font,
+                crate::fonts::REGULAR,
                 13.0 * scale,
                 &st.text,
                 content_x + st.rect.x * scale,
@@ -1029,7 +1042,8 @@ impl Flyout {
                 );
                 draw_text_centered(
                     &mut px,
-                    med, crate::fonts::MEDIUM,
+                    med,
+                    crate::fonts::MEDIUM,
                     12.0 * scale,
                     "重新连接",
                     content_x + rr.x * scale,
@@ -1086,12 +1100,7 @@ impl Flyout {
     ) {
         let pal = input.palette;
         let r = b.rect;
-        let (x, y, w, h) = (
-            tx + r.x * scale,
-            ty + r.y * scale,
-            r.w * scale,
-            r.h * scale,
-        );
+        let (x, y, w, h) = (tx + r.x * scale, ty + r.y * scale, r.w * scale, r.h * scale);
         let corner = BTN_CORNER * scale;
         let (mut fill, text) = match b.visual {
             ButtonVisual::Displayed | ButtonVisual::DisplayedFocused => {
@@ -1101,7 +1110,10 @@ impl Flyout {
             ButtonVisual::Pending => (pal.accent, pal.accent_text),
             ButtonVisual::Error => (lerp_color(pal.surface, pal.error, 0.12), pal.error),
             ButtonVisual::Disabled => (pal.surface_alt, pal.text_disabled),
-            ButtonVisual::Normal => (lerp_color(pal.surface, pal.surface_alt, 0.70), pal.text_primary),
+            ButtonVisual::Normal => (
+                lerp_color(pal.surface, pal.surface_alt, 0.70),
+                pal.text_primary,
+            ),
         };
 
         // Confirmation flash: brighten then settle over 220 ms.
@@ -1127,9 +1139,9 @@ impl Flyout {
                 scale.max(1.0),
                 clip,
             ),
-            ButtonVisual::Focused => stroke_rounded(
-                px, x, y, w, h, corner, pal.accent, scale.max(1.0), clip,
-            ),
+            ButtonVisual::Focused => {
+                stroke_rounded(px, x, y, w, h, corner, pal.accent, scale.max(1.0), clip)
+            }
             ButtonVisual::Pending => {
                 let pulse =
                     0.5 + 0.5 * (input.now.duration_since(input.epoch).as_secs_f32() * 6.0).sin();
@@ -1145,14 +1157,21 @@ impl Flyout {
                     clip,
                 );
             }
-            ButtonVisual::Error => stroke_rounded(
-                px, x, y, w, h, corner, pal.error, scale.max(1.0), clip,
-            ),
+            ButtonVisual::Error => {
+                stroke_rounded(px, x, y, w, h, corner, pal.error, scale.max(1.0), clip)
+            }
             _ => {}
         }
 
         let font = input.fonts.get(crate::fonts::MEDIUM);
-        let font_size = fit_font_size(font, crate::fonts::MEDIUM, &b.label, (r.w - 9.0).max(1.0), 12.0, 8.0);
+        let font_size = fit_font_size(
+            font,
+            crate::fonts::MEDIUM,
+            &b.label,
+            (r.w - 9.0).max(1.0),
+            12.0,
+            8.0,
+        );
         draw_text_centered(
             px,
             font,
@@ -1454,7 +1473,17 @@ fn draw_monitor_glyph(
     let h = size * 0.66;
     let x = cx - w / 2.0;
     let y = cy - h * 0.72;
-    stroke_rounded(px, x, y, w, h, size * 0.12, color, (size * 0.10).max(1.0), clip);
+    stroke_rounded(
+        px,
+        x,
+        y,
+        w,
+        h,
+        size * 0.12,
+        color,
+        (size * 0.10).max(1.0),
+        clip,
+    );
     fill_rounded(
         px,
         cx - size * 0.08,

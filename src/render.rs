@@ -37,7 +37,13 @@ pub fn fill_rounded(
     mask: Option<&Mask>,
 ) {
     if let Some(path) = rounded_rect(x, y, w, h, r) {
-        px.fill_path(&path, &solid(color), FillRule::Winding, Transform::identity(), mask);
+        px.fill_path(
+            &path,
+            &solid(color),
+            FillRule::Winding,
+            Transform::identity(),
+            mask,
+        );
     }
 }
 
@@ -68,7 +74,13 @@ pub fn fill_circle(px: &mut Pixmap, cx: f32, cy: f32, r: f32, color: Color, mask
     let mut pb = PathBuilder::new();
     pb.push_circle(cx, cy, r);
     if let Some(path) = pb.finish() {
-        px.fill_path(&path, &solid(color), FillRule::Winding, Transform::identity(), mask);
+        px.fill_path(
+            &path,
+            &solid(color),
+            FillRule::Winding,
+            Transform::identity(),
+            mask,
+        );
     }
 }
 
@@ -163,15 +175,16 @@ pub fn draw_direction_bar(
     let mut pb = PathBuilder::new();
     pb.push_rect(Rect::from_xywh(x, y, bar_len, bar_thick).unwrap());
     if let Some(path) = pb.finish()
-        && let Some(rotated) = path.transform(Transform::from_rotate_at(angle, cx, cy)) {
-            px.fill_path(
-                &rotated,
-                &solid(color),
-                FillRule::Winding,
-                Transform::identity(),
-                mask,
-            );
-        }
+        && let Some(rotated) = path.transform(Transform::from_rotate_at(angle, cx, cy))
+    {
+        px.fill_path(
+            &rotated,
+            &solid(color),
+            FillRule::Winding,
+            Transform::identity(),
+            mask,
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +220,10 @@ pub fn draw_shadow(
     let y1 = (cy + ch + spread).ceil().min(h as f32) as i32;
     for y in y0..y1 {
         for x in x0..x1 {
-            let a = mask.pixel(x as u32, y as u32).map(|p| p.alpha() as f32 / 255.0).unwrap_or(0.0);
+            let a = mask
+                .pixel(x as u32, y as u32)
+                .map(|p| p.alpha() as f32 / 255.0)
+                .unwrap_or(0.0);
             if a <= 0.0 {
                 continue;
             }
@@ -245,7 +261,11 @@ fn blur_alpha(px: &mut Pixmap, radius: u32) {
         return;
     }
     let mut tmp = vec![0u8; w * h];
-    let alpha = |i: usize| px.pixel((i % w) as u32, (i / w) as u32).map(|p| p.alpha()).unwrap_or(0);
+    let alpha = |i: usize| {
+        px.pixel((i % w) as u32, (i / w) as u32)
+            .map(|p| p.alpha())
+            .unwrap_or(0)
+    };
     // horizontal pass
     let r = radius as usize;
     for row in 0..h {
@@ -318,7 +338,17 @@ mod tests {
         let fonts = Fonts::load();
         let engine = fonts.get(crate::fonts::MEDIUM);
         let mut px = Pixmap::new(120, 48).unwrap();
-        draw_text(&mut px, engine, crate::fonts::MEDIUM, 18.0, "Generic", 2.0, 0.0, Color::WHITE, None);
+        draw_text(
+            &mut px,
+            engine,
+            crate::fonts::MEDIUM,
+            18.0,
+            "Generic",
+            2.0,
+            0.0,
+            Color::WHITE,
+            None,
+        );
 
         let ys: Vec<u32> = (0..px.height())
             .filter(|y| (0..px.width()).any(|x| px.pixel(x, *y).unwrap().alpha() > 0))

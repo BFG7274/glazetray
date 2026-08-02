@@ -156,8 +156,8 @@ pub fn load_config(path: &std::path::Path) -> Result<Config, ConfigError> {
         return Err(ConfigError::Missing);
     }
     let text = std::fs::read_to_string(path).map_err(|e| ConfigError::Io(e.to_string()))?;
-    let cfg: Config = serde_yaml_ng::from_str(&text)
-        .map_err(|e| ConfigError::Invalid(e.to_string()))?;
+    let cfg: Config =
+        serde_yaml_ng::from_str(&text).map_err(|e| ConfigError::Invalid(e.to_string()))?;
     Ok(cfg)
 }
 

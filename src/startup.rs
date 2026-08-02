@@ -1,8 +1,8 @@
 //! Startup (autostart) support via the current-user Run registry key.
 
 use windows::Win32::System::Registry::{
-    RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
-    HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, KEY_WRITE, REG_SZ,
+    HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, KEY_WRITE, REG_SZ, RegCreateKeyExW,
+    RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
 };
 
 use crate::win32;
@@ -64,7 +64,10 @@ pub fn set_startup(enabled: bool) -> std::io::Result<()> {
             })?;
             // Quote the path: Run keys parse command lines.
             let cmd = format!("\"{exe}\"");
-            let bytes = cmd.encode_utf16().flat_map(|c| c.to_le_bytes()).collect::<Vec<_>>();
+            let bytes = cmd
+                .encode_utf16()
+                .flat_map(|c| c.to_le_bytes())
+                .collect::<Vec<_>>();
             RegSetValueExW(
                 hkey,
                 win32::pcwstr(&win32::wide(VALUE_NAME)),

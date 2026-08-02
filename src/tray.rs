@@ -1,17 +1,16 @@
 //! Notification area icon lifecycle (GUID-based, resilient to Explorer
 //! restarts) and the right-click context menu.
 
-use windows::core::GUID;
 use windows::Win32::Foundation::{HWND, POINT, RECT};
 use windows::Win32::UI::Shell::{
-    Shell_NotifyIconW, NOTIFYICONDATAW, NOTIFY_ICON_DATA_FLAGS,
     NIF_GUID, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY, NIM_SETVERSION,
-    NOTIFYICON_VERSION_4,
+    NOTIFY_ICON_DATA_FLAGS, NOTIFYICON_VERSION_4, NOTIFYICONDATAW, Shell_NotifyIconW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, CreatePopupMenu, DestroyMenu, MF_CHECKED, MF_STRING, MENU_ITEM_FLAGS,
-    SetForegroundWindow, TrackPopupMenu, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON,
+    AppendMenuW, CreatePopupMenu, DestroyMenu, MENU_ITEM_FLAGS, MF_CHECKED, MF_STRING,
+    SetForegroundWindow, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu,
 };
+use windows::core::GUID;
 
 use crate::win32;
 
@@ -151,23 +150,58 @@ pub fn show_menu(hwnd: HWND, at: POINT, startup_enabled: bool, reconnect_enabled
         if menu.is_invalid() {
             return 0;
         }
-        let _ = AppendMenuW(menu, MF_STRING, MENU_OPEN, win32::pcwstr(&win32::wide("打开 GlazeTray")));
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            MENU_OPEN,
+            win32::pcwstr(&win32::wide("打开 GlazeTray")),
+        );
         let flags = if reconnect_enabled {
             MF_STRING
         } else {
             MENU_ITEM_FLAGS(MF_STRING.0 | 0x00000002) // MF_GRAYED
         };
-        let _ = AppendMenuW(menu, flags, MENU_RECONNECT, win32::pcwstr(&win32::wide("重新连接 GlazeWM")));
-        let _ = AppendMenuW(menu, MF_STRING, MENU_OPEN_CONFIG, win32::pcwstr(&win32::wide("打开配置目录")));
+        let _ = AppendMenuW(
+            menu,
+            flags,
+            MENU_RECONNECT,
+            win32::pcwstr(&win32::wide("重新连接 GlazeWM")),
+        );
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            MENU_OPEN_CONFIG,
+            win32::pcwstr(&win32::wide("打开配置目录")),
+        );
         let startup_flags = if startup_enabled {
             MENU_ITEM_FLAGS(MF_STRING.0 | MF_CHECKED.0)
         } else {
             MF_STRING
         };
-        let _ = AppendMenuW(menu, startup_flags, MENU_STARTUP, win32::pcwstr(&win32::wide("开机启动")));
-        let _ = AppendMenuW(menu, MENU_ITEM_FLAGS(0x800), 0, windows::core::PCWSTR::null()); // MF_SEPARATOR
-        let _ = AppendMenuW(menu, MF_STRING, MENU_ABOUT, win32::pcwstr(&win32::wide("关于")));
-        let _ = AppendMenuW(menu, MF_STRING, MENU_EXIT, win32::pcwstr(&win32::wide("退出")));
+        let _ = AppendMenuW(
+            menu,
+            startup_flags,
+            MENU_STARTUP,
+            win32::pcwstr(&win32::wide("开机启动")),
+        );
+        let _ = AppendMenuW(
+            menu,
+            MENU_ITEM_FLAGS(0x800),
+            0,
+            windows::core::PCWSTR::null(),
+        ); // MF_SEPARATOR
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            MENU_ABOUT,
+            win32::pcwstr(&win32::wide("关于")),
+        );
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            MENU_EXIT,
+            win32::pcwstr(&win32::wide("退出")),
+        );
 
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(

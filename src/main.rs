@@ -38,17 +38,19 @@ fn init_logging(retention_days: u32, config_level: &str) {
 
     // Cleanup old logs beyond the retention window.
     if retention_days > 0
-        && let Ok(entries) = std::fs::read_dir(&dir) {
-            let cutoff = std::time::SystemTime::now()
-                - std::time::Duration::from_secs(retention_days as u64 * 24 * 3600);
-            for entry in entries.flatten() {
-                if let Ok(meta) = entry.metadata()
-                    && let Ok(modified) = meta.modified()
-                        && modified < cutoff {
-                            let _ = std::fs::remove_file(entry.path());
-                        }
+        && let Ok(entries) = std::fs::read_dir(&dir)
+    {
+        let cutoff = std::time::SystemTime::now()
+            - std::time::Duration::from_secs(retention_days as u64 * 24 * 3600);
+        for entry in entries.flatten() {
+            if let Ok(meta) = entry.metadata()
+                && let Ok(modified) = meta.modified()
+                && modified < cutoff
+            {
+                let _ = std::fs::remove_file(entry.path());
             }
         }
+    }
 
     let appender = tracing_appender::rolling::daily(&dir, "glazetray");
     let (non_blocking, guard) = tracing_appender::non_blocking(appender);
