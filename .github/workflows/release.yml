@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release binary
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build (release)
+        run: cargo build --release --locked
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = if ("${{ github.ref_type }}" -eq "tag") {
+            "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            (Select-String -Path Cargo.toml -Pattern '^version = "(.*)"').Matches[0].Groups[1].Value
+          }
+          $staging = "glazetray-$version-win64"
+          New-Item -ItemType Directory -Force -Path $staging | Out-Null
+          Copy-Item target/release/glazetray.exe $staging/
+          Copy-Item LICENSE $staging/
+          Copy-Item README.md $staging/
+          $hash = (Get-FileHash -Algorithm SHA256 $staging/glazetray.exe).Hash.ToLower()
+          "glazetray.exe  $hash" | Set-Content $staging/SHA256SUMS.txt
+          Compress-Archive -Path $staging -DestinationPath "$staging.zip"
+          "archive=$staging.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: glazetray-win64
+          path: glazetray-*-win64.zip
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: glazetray-win64
+          path: dist
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          prev=$(git tag --sort=-version:refname | sed -n '2p')
+          range=""
+          [ -n "$prev" ] && range="$prev..HEAD"
+          {
+            echo "## 变更"
+            git log --oneline --no-merges $range
+            echo ""
+            echo "## 安装"
+            echo "下载 glazetray-*-win64.zip 解压后运行 glazetray.exe。"
+          } > RELEASE_NOTES.md
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: GlazeTray ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: dist/glazetray-*-win64.zip
