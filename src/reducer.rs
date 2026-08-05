@@ -131,7 +131,7 @@ impl Reducer {
             .monitors
             .iter()
             .map(|m| {
-                let workspaces: Vec<WorkspaceInfo> = self
+                let mut workspaces: Vec<WorkspaceInfo> = self
                     .workspace_order
                     .iter()
                     .filter_map(|id| self.workspaces.get(id))
@@ -145,6 +145,8 @@ impl Reducer {
                         switchable: can_encode_workspace_name(&w.name),
                     })
                     .collect();
+                // Order by workspace number, not by GlazeWM's report (creation) order.
+                workspaces.sort_by(|a, b| workspace_name_cmp(&a.name, &b.name));
                 let displayed = workspaces
                     .iter()
                     .find(|w| w.is_displayed)
@@ -799,6 +801,20 @@ pub fn can_encode_workspace_name(name: &str) -> bool {
         })
 }
 
+/// Compare workspace names the way users expect: pure numeric names by value
+/// ("2" before "10"), numeric names before non-numeric ones, and everything
+/// else lexicographically. This keeps workspaces ordered by their number
+/// (e.g. 1, 2, 3) regardless of the order GlazeWM reports them in (which
+/// follows creation order).
+fn workspace_name_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    match (a.parse::<u64>(), b.parse::<u64>()) {
+        (Ok(na), Ok(nb)) => na.cmp(&nb),
+        (Ok(_), Err(_)) => std::cmp::Ordering::Less,
+        (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+        (Err(_), Err(_)) => a.cmp(b),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1383,5 +1399,80 @@ mod tests {
         assert!(!can_encode_workspace_name("a\"b"));
         assert!(!can_encode_workspace_name("a;b"));
         assert!(!can_encode_workspace_name("a\tb"));
+    }
+
+    #[test]
+    fn workspaces_are_sorted_by_number_not_creation_order() {
+        // GlazeWM reports workspaces in creation order: workspace "5" was
+        // created before "1", "2" and "10". The snapshot must still order
+        // them numerically: 1, 2, 5, 10.
+        let mut r = Reducer::new();
+        r.apply(ReducerInput::Query {
+            kind: QueryKind::Monitors,
+            data: Some(serde_json::json!({
+                "monitors": [{"type":"monitor","id":"m0","x":0,"y":0,
+                               "width":3840,"height":2160}]
+            })),
+        });
+        r.apply(ReducerInput::Query {
+            kind: QueryKind::Workspaces,
+            data: Some(serde_json::json!({
+                "workspaces": [
+                    {"type":"workspace","id":"ws5","name":"5","parentId":"m0"},
+                    {"type":"workspace","id":"ws10","name":"10","parentId":"m0"},
+                    {"type":"workspace","id":"ws1","name":"1","parentId":"m0"},
+                    {"type":"workspace","id":"ws2","name":"2","parentId":"m0"}
+                ]
+            })),
+        });
+        let s = snap(&r);
+        let names: Vec<_> = s.monitors[0]
+            .workspaces
+            .iter()
+            .map(|w| w.name.as_str())
+            .collect();
+        assert_eq!(names, ["1", "2", "5", "10"]);
+    }
+
+    #[test]
+    fn workspaces_created_by_events_are_sorted_too() {
+        // New workspaces arriving via events (upsert path) must also land in
+        // numeric order instead of being appended in creation order.
+        let mut r = Reducer::new();
+        r.apply(ReducerInput::Query {
+            kind: QueryKind::Monitors,
+            data: Some(serde_json::json!({
+                "monitors": [{"type":"monitor","id":"m0","x":0,"y":0,
+                               "width":3840,"height":2160}]
+            })),
+        });
+        let upsert = |r: &mut Reducer, id: &str, name: &str| {
+            r.apply(ReducerInput::Event {
+                name: "workspace_updated".into(),
+                data: Some(serde_json::json!({
+                    "workspace": {"type":"workspace","id":id,"name":name,"parentId":"m0"}
+                })),
+            });
+        };
+        upsert(&mut r, "ws3", "3");
+        upsert(&mut r, "ws1", "1");
+        upsert(&mut r, "ws2", "2");
+        let s = snap(&r);
+        let names: Vec<_> = s.monitors[0]
+            .workspaces
+            .iter()
+            .map(|w| w.name.as_str())
+            .collect();
+        assert_eq!(names, ["1", "2", "3"]);
+    }
+
+    #[test]
+    fn workspace_name_cmp_numeric_before_lexicographic() {
+        assert_eq!(workspace_name_cmp("2", "10"), std::cmp::Ordering::Less);
+        assert_eq!(workspace_name_cmp("10", "2"), std::cmp::Ordering::Greater);
+        assert_eq!(workspace_name_cmp("1", "a"), std::cmp::Ordering::Less);
+        assert_eq!(workspace_name_cmp("a", "1"), std::cmp::Ordering::Greater);
+        assert_eq!(workspace_name_cmp("a", "b"), std::cmp::Ordering::Less);
+        assert_eq!(workspace_name_cmp("1", "1"), std::cmp::Ordering::Equal);
     }
 }
